@@ -3,6 +3,7 @@ import csv
 from bs4 import BeautifulSoup
 import requests
 
+# make a dictionary of month names and numerical representations
 month_dict = {'January': '01',
              'February': '02',
              'March': '03',
@@ -65,15 +66,22 @@ def filter_out_non_bolds(cal_dict, bold_events):
     return filtered_cal_dict
 
 
-def construct_and_write_calendar_files(cal_dict):
-    with open('calendar.csv', 'w') as csvfile:
+def construct_and_write_calendar_files(cal_dict, bold: bool):
+    if bold:
+        filename = 'bold_only_events.csv'
+    else:
+        filename = 'all_events.csv'
+    
+    with open(filename, 'w') as csvfile:
         cal_writer = csv.writer(csvfile)
+        
+        # write the header of the csv
         cal_writer.writerow(['Subject',
                              'Start Date', 'Start Time',
                              'End Date', 'End Time'
                              'Description', 'Location'])
         
-        for i, (date, events) in enumerate(cal_dict.items()):
+        for date, events in cal_dict.items():
             # create the correct date format for all events within a day
             parts = date.split(',')
             year = parts[2][1:]
@@ -81,7 +89,8 @@ def construct_and_write_calendar_files(cal_dict):
             month = month_dict[month_day[1]]
             day = month_day[2]
             date_combined = year + '/' + month +'/' + day
-
+            
+            # set the components of the csv for each event
             for j, event in enumerate(events):
                 # subject
                 subject = event[1]
@@ -114,29 +123,21 @@ def construct_and_write_calendar_files(cal_dict):
                                      end_date, end_time,
                                      description, location])
 
-    # download the file from colab
-    files.download('calendar.csv')
-
+                
+# load the page
 page = requests.get("http://bwhpathology.partners.org/Calendar.aspx")
+
+# parse with BeautifulSoup
 soup = BeautifulSoup(page.content, 'html5lib')
 
-bold_only = True
-
-# run actual program
+# gather all events and only those in bold
 events = get_all_calendar_items(soup)
-if bold_only:
-    bold_events = get_bold_calendar_items(soup)
-    cal_dict = construct_calendar_dictionary(events)
-    bold_cal_dict = filter_out_non_bolds(cal_dict, bold_events)
-    for day, events in bold_cal_dict.items():
-        print(day)
-        for event in events:
-            print(event)
-    construct_and_write_calendar_files(bold_cal_dict)
-else:
-    cal_dict = construct_calendar_dictionary(events)
-    for day, events in cal_dict.items():
-        print(day)
-        for event in events:
-            print(event)
-    construct_and_write_calendar_files(cal_dict)
+bold_events = get_bold_calendar_items(soup)
+
+# create dictionaries of the events
+cal_dict = construct_calendar_dictionary(events)
+bold_cal_dict = filter_out_non_bolds(cal_dict, bold_events)
+
+# build and write the csvs with the events
+construct_and_write_calendar_files(cal_dict, bold=False)
+construct_and_write_calendar_files(cal_dict, bold=True)
